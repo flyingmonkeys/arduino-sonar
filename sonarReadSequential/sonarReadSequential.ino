@@ -1,5 +1,5 @@
 /*
-  SonarRead
+  SonarReadSequential
   
   Read analog voltages on pins A0-A5, convert them to distances based on connections to the MB1360 
   sonar transducer sensors, and output them on the serial bus.
@@ -8,11 +8,9 @@
   (pin 3) outputs a voltage proportional to the range of the first significant target it detects.
   The voltage is Vcc/(1024*2cm), which effectively constrains the range to 10m for 5V Vcc.
   
-  The minimum time between range readings is 99ms. However, 20.5ms of that time is spent calibrating the
-  sensor, so there is no active ping or echo ranging taking place. We can use this to our advantage
-  and trigger the next reading 20.5ms early, while the active sensor is still ranging and listening for
-  an echo. This will decrease the total cycle time of reading all three axes.
-
+  The minimum time between range readings is 99ms. This sketch will activate each sonar sensor sequentially in the order:
+  { Q0, Q1, Q2, Q3, +Z, -Z }.
+  
   Sensors are labeled Q0-Q3 corresponding to Cartesian quadrants 0-3 with respect to the camera
   housing being oriented on the +Y axis (between Q0 and Q1).  
 */
@@ -98,50 +96,48 @@ void loop()
   float distanceInches_Z_plus;
   float distanceInches_Z_minus;
   
-  // trigger Q0 and Q2 sensor(s)
+  // trigger Q0 sensor, delay, and read range
   digitalWrite(rangeEnablePinQ0, HIGH);
-  digitalWrite(rangeEnablePinQ2, HIGH);
   delayMicroseconds(minEnablePulseWidthUs); 
   digitalWrite(rangeEnablePinQ0, LOW);
-  digitalWrite(rangeEnablePinQ2, LOW);
+  delay(minRangeReadTimeMs); // wait calibration time
+  distanceInches_Q0 = analogRead(SENSOR_Q0) * analogReadToInches;
   
-  delay(calibrationTimeMs); // wait calibration time
-  
-  // now Z-axis sensor readings are valid, so read now
-  distanceInches_Z_plus = analogRead(SENSOR_Z_PLUS) * analogReadToInches;
-  distanceInches_Z_minus = analogRead(SENSOR_Z_MINUS) * analogReadToInches;
-  
-  delay(minRangeReadTimeMs-calibrationTimeMs-calibrationTimeMs); // wait minimum cycle time, less twice the calibration time
-  
-  // trigger Q1 and Q3 sensor(s)
+  // trigger Q1 sensor, delay, and read range
   digitalWrite(rangeEnablePinQ1, HIGH);
-  digitalWrite(rangeEnablePinQ3, HIGH);
   delayMicroseconds(minEnablePulseWidthUs); 
   digitalWrite(rangeEnablePinQ1, LOW);
-  digitalWrite(rangeEnablePinQ3, LOW);
+  delay(minRangeReadTimeMs); // wait calibration time
+  distanceInches_Q1 = analogRead(SENSOR_Q1) * analogReadToInches;
   
-  delay(calibrationTimeMs); // wait calibration time
-
-  // now Q0 and Q2 sensor readings are valid, so read now
-  distanceInches_Q0 = analogRead(SENSOR_Q0) * analogReadToInches;
+  // trigger Q2 sensor, delay, and read range
+  digitalWrite(rangeEnablePinQ2, HIGH);
+  delayMicroseconds(minEnablePulseWidthUs); 
+  digitalWrite(rangeEnablePinQ2, LOW);
+  delay(minRangeReadTimeMs); // wait calibration time
   distanceInches_Q2 = analogRead(SENSOR_Q2) * analogReadToInches;
-
-  delay(minRangeReadTimeMs-calibrationTimeMs-calibrationTimeMs); // wait minimum cycle time, less twice the calibration time
   
-  // trigger Z axis sensor(s)
+  // trigger Q3 sensor, delay, and read range
+  digitalWrite(rangeEnablePinQ3, HIGH);
+  delayMicroseconds(minEnablePulseWidthUs); 
+  digitalWrite(rangeEnablePinQ3, LOW);
+  delay(minRangeReadTimeMs); // wait calibration time
+  distanceInches_Q3 = analogRead(SENSOR_Q3) * analogReadToInches;
+  
+  // trigger +Z sensor, delay, and read range
   digitalWrite(rangeEnablePinZ_p, HIGH);
-  digitalWrite(rangeEnablePinZ_m, HIGH);
   delayMicroseconds(minEnablePulseWidthUs); 
   digitalWrite(rangeEnablePinZ_p, LOW);
-  digitalWrite(rangeEnablePinZ_m, LOW);
+  delay(minRangeReadTimeMs); // wait calibration time
+  distanceInches_Z_plus = analogRead(SENSOR_Z_PLUS) * analogReadToInches;
   
-  delay(calibrationTimeMs); // wait calibration time
-
-  // now Q1 and Q3 sensor readings are valid, so read now
-  distanceInches_Q1 = analogRead(SENSOR_Q1) * analogReadToInches;
-  distanceInches_Q3 = analogRead(SENSOR_Q3) * analogReadToInches;
-
-  delay(minRangeReadTimeMs-calibrationTimeMs-calibrationTimeMs);
+  // trigger -Z sensor, delay, and read range
+  digitalWrite(rangeEnablePinZ_m, HIGH);
+  delayMicroseconds(minEnablePulseWidthUs); 
+  digitalWrite(rangeEnablePinZ_m, LOW);
+  delay(minRangeReadTimeMs); // wait calibration time
+  distanceInches_Z_minus = analogRead(SENSOR_Z_MINUS) * analogReadToInches;
+  
  
   // print out the value you read:
 //  Serial.print("Distance");
